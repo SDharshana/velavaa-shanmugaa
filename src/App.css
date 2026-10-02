@@ -1,0 +1,25 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f8f3e7;
+  color: #201b14;
+}
+
+button,
+a {
+  font-family: inherit;
+}
+
+#root {
+  min-height: 100vh;
+}
