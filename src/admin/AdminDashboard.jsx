@@ -21,6 +21,7 @@ function AdminDashboard() {
   const [variants, setVariants] = useState([]);
   const [discounts, setDiscounts] = useState([]);
   const [tab, setTab] = useState("products");
+  const [uploading, setUploading] = useState(false);
 
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -151,6 +152,65 @@ function AdminDashboard() {
     }
 
     setBusy(false);
+  }
+
+
+  async function uploadImage(file, productId) {
+    if (!file) return;
+
+    const types = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ];
+
+    if (!types.includes(file.type) || file.size > 5 * 1024 * 1024) {
+      setMessage("Use JPG, PNG or WebP under 5MB.");
+      return;
+    }
+
+    setUploading(true);
+    setMessage("Uploading image...");
+
+    try {
+      const extension = {
+        "image/jpeg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+      }[file.type];
+
+      const storagePath =
+        `${productId || "new"}/${crypto.randomUUID()}.${extension}`;
+
+      const { error } = await supabase.storage
+        .from("product-images")
+        .upload(storagePath, file, {
+          contentType: file.type,
+          upsert: false,
+        });
+
+      if (error) throw error;
+
+      const { data } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(storagePath);
+
+      if (productId) {
+        await save("products", productId, {
+          image_url: data.publicUrl,
+        });
+      } else {
+        setNewProduct((current) => ({
+          ...current,
+          image_url: data.publicUrl,
+        }));
+        setMessage("Image uploaded. Create the product to save it.");
+      }
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function addProduct(event) {
@@ -287,6 +347,34 @@ function AdminDashboard() {
 
           {message && <p className="mt-4 text-sm text-red-700">{message}</p>}
 
+          <button
+            type="button"
+            onClick={async () => {
+              if (!email.trim()) {
+                setMessage("Enter your email first.");
+                return;
+              }
+
+              const { error } =
+                await supabase.auth.resetPasswordForEmail(
+                  email.trim(),
+                  {
+                    redirectTo:
+                      `${window.location.origin}/reset-password`,
+                  }
+                );
+
+              setMessage(
+                error
+                  ? error.message
+                  : "If the address is registered, check your inbox for a reset link."
+              );
+            }}
+            className="mt-5 block w-full text-center text-sm text-[#a87918] underline"
+          >
+            Forgot Password?
+          </button>
+
           <a href="/" className="mt-6 block text-center text-sm underline">
             Return to Store
           </a>
@@ -387,6 +475,8 @@ function AdminDashboard() {
                 product={product}
                 busy={busy}
                 onSave={(values) => save("products", product.id, values)}
+                onUpload={(file) => uploadImage(file, product.id)}
+                uploading={uploading}
               />
             ))}
 
@@ -397,7 +487,7 @@ function AdminDashboard() {
               <h3 className="mb-5 font-serif text-xl">Add New Product</h3>
 
               <div className="grid gap-4 md:grid-cols-2">
-                {["name", "category", "description", "image_url", "badge"].map(
+                {["name", "category", "description", "badge"].map(
                   (field) => (
                     <label key={field} className="block">
                       <span className="mb-2 block text-sm capitalize">
@@ -419,7 +509,28 @@ function AdminDashboard() {
                 )}
               </div>
 
-              <button disabled={busy} className={`${buttonClass} mt-5`}>
+              <label className="mt-5 block text-sm">
+                Upload Product Image
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={uploading}
+                  className="mt-2 block w-full"
+                  onChange={(e) =>
+                    uploadImage(e.target.files?.[0], null)
+                  }
+                />
+              </label>
+
+              {newProduct.image_url && (
+                <img
+                  src={newProduct.image_url}
+                  alt="New product preview"
+                  className="mt-3 h-28 w-28 object-contain"
+                />
+              )}
+
+              <button disabled={busy || uploading} className={`${buttonClass} mt-5`}>
                 Create Product
               </button>
             </form>
@@ -608,7 +719,7 @@ function AdminDashboard() {
   );
 }
 
-function ProductEditor({ product, onSave, busy }) {
+function ProductEditor({ product, onSave, onUpload, busy, uploading }) {
   const [form, setForm] = useState({
     name: product.name,
     category: product.category,
@@ -640,7 +751,7 @@ function ProductEditor({ product, onSave, busy }) {
       <h3 className="mb-5 font-serif text-xl">{product.name}</h3>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {["name", "category", "description", "image_url", "badge"].map(
+        {["name", "category", "description", "badge"].map(
           (field) => (
             <label key={field}>
               <span className="mb-2 block text-sm capitalize">
@@ -658,6 +769,25 @@ function ProductEditor({ product, onSave, busy }) {
           )
         )}
       </div>
+
+      <label className="mt-5 block text-sm">
+        Upload or Replace Product Image
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          disabled={busy || uploading}
+          className="mt-2 block w-full"
+          onChange={(e) => onUpload(e.target.files?.[0])}
+        />
+      </label>
+
+      {form.image_url && (
+        <img
+          src={form.image_url}
+          alt={`${product.name} preview`}
+          className="mt-3 h-32 w-32 object-contain"
+        />
+      )}
 
       <label className="mt-5 flex items-center gap-3">
         <input

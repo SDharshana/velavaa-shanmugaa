@@ -1,6 +1,6 @@
-import AdminDashboard from "./admin/AdminDashboard";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import AdminDashboard from "./admin/AdminDashboard";
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import Products from "./components/Products";
@@ -8,236 +8,193 @@ import BrandStory from "./components/BrandStory";
 import Footer from "./components/Footer";
 import ProductDetails from "./components/ProductDetails";
 import Cart from "./components/Cart";
-import Checkout from "./components/Checkout";
+import CheckoutUnavailable from "./components/CheckoutUnavailable";
 import Register from "./components/Register";
 import Login from "./components/Login";
+import PasswordRecovery from "./components/PasswordRecovery";
 
-function App() {
-  const isAdminRoute = window.location.pathname === "/admin" || window.location.pathname.startsWith("/admin/");
+import { fetchCatalog } from "./lib/catalog";
 
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [cartItems, setCartItems] = useState([]);
+export default function App() {
+  const path = window.location.pathname;
+
+  if (path === "/admin" || path.startsWith("/admin/")) {
+    return <AdminDashboard />;
+  }
+
+  if (path === "/reset-password") {
+    return <PasswordRecovery />;
+  }
+
+  return <Store />;
+}
+
+function Store() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [selected, setSelected] = useState(null);
+  const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [registerOpen, setRegisterOpen] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState("store");
 
-  const handleProductSelect = (product) => {
-    setSelectedProduct(product);
+  useEffect(() => {
+    let mounted = true;
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
+    fetchCatalog()
+      .then((data) => {
+        if (mounted) setProducts(data);
+      })
+      .catch((err) => {
+        if (mounted) setError(err.message);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
 
-  const handleBack = () => {
-    setSelectedProduct(null);
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  function selectProduct(product) {
+    setSelected(product);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function backToCollection() {
+    setSelected(null);
 
     setTimeout(() => {
-      document.getElementById("collections")?.scrollIntoView({
-        behavior: "smooth",
-      });
+      document
+        .getElementById("collections")
+        ?.scrollIntoView({ behavior: "smooth" });
     }, 50);
-  };
+  }
 
-  const handleAddToCart = (product) => {
-    const cartId = `${product.id}-${product.packageSize}`;
+  function navigate(id) {
+    setPage("store");
+    setSelected(null);
+    setCartOpen(false);
 
-    setCartItems((currentItems) => {
-      const existingItem = currentItems.find(
-        (item) => item.cartId === cartId
-      );
-
-      if (existingItem) {
-        return currentItems.map((item) =>
-          item.cartId === cartId
-            ? {
-                ...item,
-                quantity: item.quantity + product.quantity,
-              }
-            : item
-        );
+    setTimeout(() => {
+      if (id === "home") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        document
+          .getElementById(id)
+          ?.scrollIntoView({ behavior: "smooth" });
       }
+    }, 80);
+  }
 
-      return [
-        ...currentItems,
-        {
-          ...product,
-          cartId,
-        },
-      ];
-    });
+  function addToCart(item) {
+    const cartId = `${item.id}-${item.variantId}`;
+
+    const existing = cart.find(
+      (entry) => entry.cartId === cartId
+    );
+
+    if (
+      (existing?.quantity || 0) + item.quantity >
+      item.stock
+    ) {
+      return false;
+    }
+
+    setCart((items) =>
+      existing
+        ? items.map((entry) =>
+            entry.cartId === cartId
+              ? {
+                  ...entry,
+                  quantity: entry.quantity + item.quantity,
+                }
+              : entry
+          )
+        : [...items, { ...item, cartId }]
+    );
 
     setCartOpen(true);
-  };
+    return true;
+  }
 
-  const handleIncrease = (cartId) => {
-    setCartItems((currentItems) =>
-      currentItems.map((item) =>
-        item.cartId === cartId
-          ? {
-              ...item,
-              quantity: item.quantity + 1,
-            }
-          : item
-      )
-    );
-  };
-
-  const handleDecrease = (cartId) => {
-    setCartItems((currentItems) =>
-      currentItems
-        .map((item) =>
-          item.cartId === cartId
+  function changeQuantity(id, delta) {
+    setCart((items) =>
+      items
+        .map((entry) =>
+          entry.cartId === id
             ? {
-                ...item,
-                quantity: item.quantity - 1,
+                ...entry,
+                quantity: Math.min(
+                  entry.stock,
+                  Math.max(0, entry.quantity + delta)
+                ),
               }
-            : item
+            : entry
         )
-        .filter((item) => item.quantity > 0)
+        .filter((entry) => entry.quantity > 0)
     );
-  };
-
-  const handleRemove = (cartId) => {
-    setCartItems((currentItems) =>
-      currentItems.filter((item) => item.cartId !== cartId)
-    );
-  };
-
-  const cartCount = cartItems.reduce(
-    (total, item) => total + item.quantity,
-    0
-  );
-
-  const handleCheckout = () => {
-    setCartOpen(false);
-    setCheckoutOpen(true);
-    setRegisterOpen(false);
-    setLoginOpen(false);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  const handleCheckoutBack = () => {
-    setCheckoutOpen(false);
-    setCartOpen(true);
-  };
-
-  const handlePlaceOrder = (customerDetails) => {
-    console.log("Customer Details:", customerDetails);
-    console.log("Order Items:", cartItems);
-  };
-
-  // Open Register page
-  const handleRegister = () => {
-    setRegisterOpen(true);
-    setLoginOpen(false);
-    setCheckoutOpen(false);
-    setSelectedProduct(null);
-    setCartOpen(false);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  // Open Login page
-  const handleLogin = () => {
-    setLoginOpen(true);
-    setRegisterOpen(false);
-    setCheckoutOpen(false);
-    setSelectedProduct(null);
-    setCartOpen(false);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  // Back from Register
-  const handleRegisterBack = () => {
-    setRegisterOpen(false);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  // Back from Login
-  const handleLoginBack = () => {
-    setLoginOpen(false);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  // After successful login
-  const handleLoginSuccess = () => {
-    setLoginOpen(false);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  if (isAdminRoute) return <AdminDashboard />;
+  }
 
   return (
-    <div>
+    <>
       <Navbar
-        cartCount={cartCount}
+        cartCount={cart.reduce(
+          (count, item) => count + item.quantity,
+          0
+        )}
         onCartClick={() => setCartOpen(true)}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onRegister={handleRegister}
+        searchTerm={search}
+        onSearchChange={setSearch}
+        onRegister={() => {
+          setPage("login");
+          setSelected(null);
+          window.scrollTo(0, 0);
+        }}
+        onNavigate={navigate}
       />
 
-      {loginOpen ? (
+      {page === "login" ? (
         <Login
-          onBack={handleLoginBack}
-          onRegister={handleRegister}
-          onLoginSuccess={handleLoginSuccess}
+          onBack={() => setPage("store")}
+          onRegister={() => setPage("register")}
+          onLoginSuccess={() => setPage("store")}
         />
-      ) : registerOpen ? (
+      ) : page === "register" ? (
         <Register
-          onBack={handleRegisterBack}
-          onLogin={handleLogin}
+          onBack={() => setPage("store")}
+          onLogin={() => setPage("login")}
         />
-      ) : checkoutOpen ? (
-        <Checkout
-          cartItems={cartItems}
-          onBack={handleCheckoutBack}
-          onPlaceOrder={handlePlaceOrder}
+      ) : page === "checkout" ? (
+        <CheckoutUnavailable
+          onBack={() => {
+            setPage("store");
+            setCartOpen(true);
+          }}
         />
-      ) : selectedProduct ? (
+      ) : selected ? (
         <ProductDetails
-          product={selectedProduct}
-          onBack={handleBack}
-          onAddToCart={handleAddToCart}
+          key={selected.id}
+          product={selected}
+          onBack={backToCollection}
+          onAddToCart={addToCart}
         />
       ) : (
         <>
           <Hero />
 
           <Products
-            onProductSelect={handleProductSelect}
-            searchTerm={searchTerm}
+            products={products}
+            loading={loading}
+            error={error}
+            onProductSelect={selectProduct}
+            searchTerm={search}
           />
 
           <BrandStory />
-
           <Footer />
         </>
       )}
@@ -245,16 +202,21 @@ function App() {
       <Cart
         isOpen={cartOpen}
         onClose={() => setCartOpen(false)}
-        cartItems={cartItems}
-        onIncrease={handleIncrease}
-        onDecrease={handleDecrease}
-        onRemove={handleRemove}
-        onClear={() => setCartItems([])}
-        onCheckout={handleCheckout}
+        cartItems={cart}
+        onIncrease={(id) => changeQuantity(id, 1)}
+        onDecrease={(id) => changeQuantity(id, -1)}
+        onRemove={(id) =>
+          setCart((items) =>
+            items.filter((entry) => entry.cartId !== id)
+          )
+        }
+        onClear={() => setCart([])}
+        onCheckout={() => {
+          setCartOpen(false);
+          setPage("checkout");
+          window.scrollTo(0, 0);
+        }}
       />
-    </div>
+    </>
   );
 }
-
-export default App;
-

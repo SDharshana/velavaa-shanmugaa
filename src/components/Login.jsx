@@ -78,7 +78,7 @@ function Login({ onBack, onRegister, onLoginSuccess }) {
         throw new Error("Login failed. Please try again.");
       }
 
-      alert("Login successful!");
+      // Login success is handled by the application.
 
       if (onLoginSuccess) {
         onLoginSuccess(data.user);
@@ -137,7 +137,7 @@ function Login({ onBack, onRegister, onLoginSuccess }) {
       const { error } = await supabase.auth.resetPasswordForEmail(
         formData.email.trim(),
         {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: `${window.location.origin}/reset-password`,
         }
       );
 
@@ -162,7 +162,7 @@ function Login({ onBack, onRegister, onLoginSuccess }) {
   };
 
   return (
-    <section className="min-h-screen bg-[#f8f4ea] px-6 py-12 lg:px-10">
+    <section className="min-h-[calc(100vh-80px)] bg-[#f8f4ea] px-6 py-16 lg:px-10">
       <div className="mx-auto max-w-xl">
 
         {/* Back */}
