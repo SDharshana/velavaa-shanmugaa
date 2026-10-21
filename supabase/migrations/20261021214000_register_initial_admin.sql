@@ -1,0 +1,2 @@
+-- Initial administrator was registered using a private migration.
+-- The original registration SQL is not stored in Git.
