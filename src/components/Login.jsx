@@ -59,6 +59,12 @@ function Login({ onBack, onRegister, onLoginSuccess }) {
     setIsSubmitting(true);
 
     try {
+      if (!supabase) {
+        throw new Error(
+          "Authentication is not configured. Please contact the store administrator."
+        );
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email.trim(),
         password: formData.password,
@@ -122,6 +128,12 @@ function Login({ onBack, onRegister, onLoginSuccess }) {
     setErrors({});
 
     try {
+      if (!supabase) {
+        throw new Error(
+          "Authentication is not configured. Please contact the store administrator."
+        );
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(
         formData.email.trim(),
         {
