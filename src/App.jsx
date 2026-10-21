@@ -1,3 +1,4 @@
+import AdminDashboard from "./admin/AdminDashboard";
 import { useState } from "react";
 
 import Navbar from "./components/Navbar";
@@ -12,6 +13,8 @@ import Register from "./components/Register";
 import Login from "./components/Login";
 
 function App() {
+  const isAdminRoute = window.location.pathname === "/admin" || window.location.pathname.startsWith("/admin/");
+
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [cartItems, setCartItems] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -188,6 +191,8 @@ function App() {
       behavior: "smooth",
     });
   };
+
+  if (isAdminRoute) return <AdminDashboard />;
 
   return (
     <div>
